@@ -22,6 +22,8 @@ Automatically apply one AI-managed label to a Gmail *thread* (conversation) by c
 ## Setup (dev)
 This extension requires Gmail OAuth (`gmail.modify`). You will need to create Google OAuth credentials for a Chrome extension and add the client id to the manifest.
 
+You’ll also need a tiny backend API for classification (so no LLM keys live in the extension). See `backend/`.
+
 See `docs/setup.md`.
 
 ## Repo layout
