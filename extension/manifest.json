@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Gmail Grouper",
+  "version": "0.1.0",
+  "description": "Thread-first AI labeling for Gmail.",
+  "permissions": [
+    "identity",
+    "alarms",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://gmail.googleapis.com/*"
+  ],
+  "oauth2": {
+    "client_id": "REPLACE_ME.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.modify"
+    ]
+  },
+  "background": {
+    "service_worker": "src/service_worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Gmail Grouper"
+  }
+}

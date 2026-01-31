@@ -1,0 +1,12 @@
+# Node
+node_modules/
+
+# build artifacts
+/dist/
+
+# IDE
+.DS_Store
+.vscode/
+
+# secrets
+.env
