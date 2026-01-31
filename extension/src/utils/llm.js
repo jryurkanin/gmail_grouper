@@ -1,26 +1,15 @@
 // IMPORTANT: do not ship API keys in an extension.
 // Use a backend that holds the LLM key.
 
-const DEFAULT_ENDPOINT = 'http://localhost:8787/classify';
-
-async function getSettings() {
-  const { llmEndpoint, llmAuthToken } = await chrome.storage.local.get([
-    'llmEndpoint',
-    'llmAuthToken',
-  ]);
-  return {
-    endpoint: llmEndpoint || DEFAULT_ENDPOINT,
-    authToken: llmAuthToken || null,
-  };
-}
+import { getConfig } from './config.js';
 
 export async function classifyThread({ allowedLabels, rootEmailText }) {
-  const { endpoint, authToken } = await getSettings();
+  const cfg = await getConfig();
 
   const headers = { 'Content-Type': 'application/json' };
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  if (cfg.llmAuthToken) headers['Authorization'] = `Bearer ${cfg.llmAuthToken}`;
 
-  const res = await fetch(endpoint, {
+  const res = await fetch(cfg.llmEndpoint, {
     method: 'POST',
     headers,
     body: JSON.stringify({ allowedLabels, rootEmailText }),

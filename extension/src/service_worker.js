@@ -10,14 +10,38 @@ import {
 } from './utils/gmail.js';
 import { extractPlainText } from './utils/mime.js';
 import { classifyThread } from './utils/llm.js';
-
-const MANAGED_LABELS = ["AI_Finance", "AI_Client", "AI_Newsletter"]; // allowed output labels
+import { getConfig } from './utils/config.js';
 
 const ALARM_NAME = 'gmail_grouper_poll';
-const POLL_MINUTES = 5;
 
 chrome.runtime.onInstalled.addListener(async () => {
-  chrome.alarms.create(ALARM_NAME, { periodInMinutes: POLL_MINUTES });
+  await ensureAlarmFromConfig();
+});
+
+chrome.runtime.onStartup?.addListener(async () => {
+  await ensureAlarmFromConfig();
+});
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  (async () => {
+    if (msg?.type === 'configUpdated') {
+      await ensureAlarmFromConfig();
+      sendResponse({ ok: true });
+      return;
+    }
+    if (msg?.type === 'runNow') {
+      await processUnreadThreads();
+      sendResponse({ ok: true });
+      return;
+    }
+    sendResponse({ ok: false });
+  })().catch((e) => {
+    console.error('onMessage failed', e);
+    sendResponse({ ok: false, error: String(e) });
+  });
+
+  // keep channel open for async
+  return true;
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -25,30 +49,51 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   await processUnreadThreads();
 });
 
+async function ensureAlarmFromConfig() {
+  const cfg = await getConfig();
+  const periodInMinutes = Math.max(1, Number(cfg.pollMinutes) || 5);
+  chrome.alarms.create(ALARM_NAME, { periodInMinutes });
+}
+
+async function refreshLabelCache(token) {
+  // refresh label cache (name->id) occasionally
+  const now = Date.now();
+  const { labelCacheUpdatedAt = 0 } = await chrome.storage.local.get('labelCacheUpdatedAt');
+
+  // refresh at most every 30 minutes
+  if (now - labelCacheUpdatedAt < 30 * 60 * 1000) return;
+
+  const labels = await listLabels(token);
+  const map = {};
+  for (const l of labels) map[l.name] = l.id;
+  await chrome.storage.local.set({ labelNameToId: map, labelCacheUpdatedAt: now });
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function processUnreadThreads() {
+  const cfg = await getConfig();
   const token = await getAuthToken();
 
-  // refresh label cache (name->id)
   await refreshLabelCache(token);
 
-  const threads = await listUnreadThreads(token);
+  const threads = await listUnreadThreads(token, { max: cfg.maxThreads });
   for (const t of threads) {
     try {
-      await analyzeThread(t.id, token);
+      await analyzeThread(t.id, token, cfg);
+      // small delay to avoid hammering Gmail API
+      await sleep(150);
     } catch (e) {
       console.error('analyzeThread failed', t.id, e);
     }
   }
 }
 
-async function refreshLabelCache(token) {
-  const labels = await listLabels(token);
-  const map = {};
-  for (const l of labels) map[l.name] = l.id;
-  await chrome.storage.local.set({ labelNameToId: map });
-}
+async function analyzeThread(threadId, token, cfg) {
+  const MANAGED_LABELS = cfg.managedLabels;
 
-async function analyzeThread(threadId, token) {
   // METADATA fetch is cheap and enough to read labelIds
   const meta = await getThreadMetadata(threadId, token);
   const labelIds = meta?.messages?.[0]?.labelIds || [];
@@ -58,9 +103,12 @@ async function analyzeThread(threadId, token) {
 
   const hasManaged = labelIds.some((id) => managedLabelIds.includes(id));
   if (hasManaged) {
-    console.log(`Thread ${threadId} already labeled. Skipping LLM.`);
-    return;
+    return; // inheritance: cost $0
   }
+
+  // Avoid reprocessing unlabeled threads repeatedly.
+  const { processedThreads = {} } = await chrome.storage.local.get('processedThreads');
+  if (processedThreads[threadId]) return;
 
   const fullThread = await getThreadMinimal(threadId, token);
   const sorted = [...(fullThread.messages || [])].sort(
@@ -87,8 +135,14 @@ async function analyzeThread(threadId, token) {
   if (!labelId) {
     const created = await createLabel(labelName, token);
     labelId = created.id;
+    // refresh label cache immediately
+    await chrome.storage.local.set({ labelCacheUpdatedAt: 0 });
     await refreshLabelCache(token);
   }
 
   await applyLabelToThread(threadId, labelId, token);
+
+  // mark thread as processed to reduce repeated LLM calls if Gmail hasn't synced labels yet
+  processedThreads[threadId] = Date.now();
+  await chrome.storage.local.set({ processedThreads });
 }

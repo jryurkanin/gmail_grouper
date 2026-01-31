@@ -2,11 +2,52 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Gmail Grouper</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gmail Grouper Settings</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; max-width: 720px; }
+      label { display: block; margin: 12px 0 6px; font-weight: 600; }
+      input, textarea { width: 100%; padding: 8px; box-sizing: border-box; }
+      textarea { min-height: 72px; }
+      .row { display: flex; gap: 12px; }
+      .row > div { flex: 1; }
+      .hint { color: #555; font-size: 13px; margin-top: 4px; }
+      .actions { margin-top: 16px; display: flex; gap: 8px; }
+      button { padding: 8px 12px; }
+      code { background: #f5f5f5; padding: 1px 4px; }
+      .status { margin-top: 12px; font-size: 13px; }
+    </style>
   </head>
   <body>
     <h1>Gmail Grouper</h1>
-    <p>This MVP runs in the background and labels threads.</p>
-    <p>LLM endpoint is currently a placeholder; see <code>src/utils/llm.js</code>.</p>
+
+    <label for="pollMinutes">Poll interval (minutes)</label>
+    <input id="pollMinutes" type="number" min="1" step="1" />
+    <div class="hint">How often the background worker checks for unread threads.</div>
+
+    <label for="managedLabels">Managed labels (one per line)</label>
+    <textarea id="managedLabels" spellcheck="false"></textarea>
+    <div class="hint">The classifier must return one of these. Labels will be created if missing.</div>
+
+    <label for="llmEndpoint">LLM endpoint</label>
+    <input id="llmEndpoint" type="text" spellcheck="false" />
+    <div class="hint">Example: <code>https://your-host/classify</code>. Default: <code>http://localhost:8787/classify</code></div>
+
+    <label for="llmAuthToken">LLM auth token (optional)</label>
+    <input id="llmAuthToken" type="password" spellcheck="false" />
+    <div class="hint">Sent as <code>Authorization: Bearer &lt;token&gt;</code>.</div>
+
+    <label for="maxThreads">Max threads per poll</label>
+    <input id="maxThreads" type="number" min="1" step="1" />
+    <div class="hint">Limit how many unread threads are processed per run (rate limiting).</div>
+
+    <div class="actions">
+      <button id="save">Save</button>
+      <button id="runNow">Run now</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <script type="module" src="options.js"></script>
   </body>
 </html>

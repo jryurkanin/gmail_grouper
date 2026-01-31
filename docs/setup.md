@@ -10,16 +10,26 @@ High level:
 - Add your extension ID (Chrome generates it when loaded unpacked)
 
 ## 2) Configure manifest
-Add:
+Update `extension/manifest.json`:
 - `oauth2.client_id`
 - `oauth2.scopes` including `https://www.googleapis.com/auth/gmail.modify`
 
 ## 3) Load unpacked
 - Chrome → Extensions → Developer mode → Load unpacked → select `extension/`
 
-## 4) First run
-- Extension will request Gmail consent.
+## 4) Configure the extension
+Open extension options:
+- Chrome → Extensions → Gmail Grouper → Details → Extension options
+
+Set:
+- Poll interval
+- Managed labels
+- Backend `llmEndpoint` (e.g. `https://your-host/classify`)
+- Optional `llmAuthToken`
+
+## 5) Run the backend
+See `backend/README.md`.
 
 ## Notes
-- For production distribution, you must align OAuth + Chrome Web Store listing.
-- Don’t ship LLM API keys in the extension; use a backend.
+- For production distribution, align OAuth + Chrome Web Store listing.
+- Don’t ship LLM API keys in the extension; use the backend.
