@@ -1,4 +1,5 @@
-// Extract text/plain (preferred) or fallback to snippet-ish content.
+// Extract text/plain (preferred) or fallback to text/html -> text, or snippet.
+import { htmlToText } from './html.js';
 
 function b64urlDecode(str) {
   // Gmail uses base64url
@@ -15,20 +16,29 @@ function b64urlDecode(str) {
   }
 }
 
-function walkParts(payload, acc) {
+function walkParts(payload, accPlain, accHtml) {
   if (!payload) return;
+
   if (payload.mimeType === 'text/plain' && payload.body?.data) {
-    acc.push(b64urlDecode(payload.body.data));
+    accPlain.push(b64urlDecode(payload.body.data));
   }
-  for (const p of payload.parts || []) walkParts(p, acc);
+
+  if (payload.mimeType === 'text/html' && payload.body?.data) {
+    accHtml.push(b64urlDecode(payload.body.data));
+  }
+
+  for (const p of payload.parts || []) walkParts(p, accPlain, accHtml);
 }
 
 export function extractPlainText(messageFull) {
   const payload = messageFull?.payload;
-  const texts = [];
-  walkParts(payload, texts);
-  if (texts.length) return texts.join('\n\n').trim();
+  const plain = [];
+  const html = [];
+  walkParts(payload, plain, html);
 
-  // fallback: Gmail provides snippet on FULL response sometimes
+  if (plain.length) return plain.join('\n\n').trim();
+
+  if (html.length) return htmlToText(html.join('\n\n'));
+
   return (messageFull?.snippet || '').trim();
 }

@@ -16,9 +16,26 @@ async function apiFetch(url, token, opts = {}) {
   return res.json();
 }
 
-export async function listUnreadThreads(token) {
-  const data = await apiFetch(`${API}/threads?q=is:unread`, token);
-  return data.threads || [];
+export async function listUnreadThreads(token, { max = 50 } = {}) {
+  // Handle pagination.
+  const threads = [];
+  let pageToken = undefined;
+
+  while (threads.length < max) {
+    const pageSize = Math.min(100, max - threads.length);
+    const qp = new URLSearchParams();
+    qp.set('q', 'is:unread');
+    qp.set('maxResults', String(pageSize));
+    if (pageToken) qp.set('pageToken', pageToken);
+
+    const data = await apiFetch(`${API}/threads?${qp.toString()}`, token);
+    for (const t of data.threads || []) threads.push(t);
+
+    if (!data.nextPageToken) break;
+    pageToken = data.nextPageToken;
+  }
+
+  return threads;
 }
 
 export async function getThreadMetadata(threadId, token) {

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gmail Grouper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Thread-first AI labeling for Gmail.",
   "permissions": [
     "identity",
@@ -23,5 +23,9 @@
   },
   "action": {
     "default_title": "Gmail Grouper"
+  },
+  "options_ui": {
+    "page": "src/options.html",
+    "open_in_tab": true
   }
 }
